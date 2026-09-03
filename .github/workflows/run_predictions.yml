@@ -1,0 +1,56 @@
+name: Football Betting Predictions
+
+on:
+  # Ejecutar automáticamente cada día a las 8:00 AM UTC
+  schedule:
+    - cron: '0 8 * * *'
+  # Ejecutar manualmente desde la app de GitHub (móvil)
+  workflow_dispatch:
+    inputs:
+      competition_filter:
+        description: 'Filtrar por competición (dejar vacío para todas)'
+        required: false
+        default: ''
+
+jobs:
+  predict:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run predictions
+        env:
+          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
+          SHARP_API_KEY: ${{ secrets.SHARP_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          COMPETITION_FILTER: ${{ github.event.inputs.competition_filter }}
+        run: |
+          python -m src.main
+
+      - name: Upload results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: predictions-results
+          path: predictions_*.json
+          retention-days: 7
